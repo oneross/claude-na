@@ -128,25 +128,66 @@ function formatDue(due: TodoistTask['due']): string {
 }
 
 /**
+ * Render git status in format: main !1 +2 ?3 ↑1 ↓2
+ * - !N = modified (unstaged)
+ * - +N = staged
+ * - ?N = untracked
+ * - ↑N = ahead of remote
+ * - ↓N = behind remote
+ */
+function renderGitStatus(env: EnvironmentInfo): string {
+  const git = env.git;
+  if (!git.branch) return '';
+
+  let result = `${colors.magenta}${git.branch}${colors.reset}`;
+
+  const indicators: string[] = [];
+
+  if (git.staged > 0) {
+    indicators.push(`${colors.green}+${git.staged}${colors.reset}`);
+  }
+  if (git.modified > 0) {
+    indicators.push(`${colors.yellow}!${git.modified}${colors.reset}`);
+  }
+  if (git.untracked > 0) {
+    indicators.push(`${colors.dim}?${git.untracked}${colors.reset}`);
+  }
+  if (git.ahead > 0) {
+    indicators.push(`${colors.cyan}↑${git.ahead}${colors.reset}`);
+  }
+  if (git.behind > 0) {
+    indicators.push(`${colors.red}↓${git.behind}${colors.reset}`);
+  }
+
+  if (indicators.length > 0) {
+    result += ` ${indicators.join(' ')}`;
+  }
+
+  return result;
+}
+
+/**
  * Render location string (directory + branch + venv).
  */
 function renderLocation(env: EnvironmentInfo, verbose: boolean): string {
+  const gitStatus = renderGitStatus(env);
+
   if (verbose) {
-    // Verbose: ~/projects/claude-na │ main │ .venv
+    // Verbose: ~/projects/claude-na │ main +1 !2 ?3 │ .venv
     const parts: string[] = [];
     parts.push(`${colors.cyan}${env.fullPath}${colors.reset}`);
-    if (env.gitBranch) {
-      parts.push(`${colors.magenta}${env.gitBranch}${colors.reset}`);
+    if (gitStatus) {
+      parts.push(gitStatus);
     }
     if (env.venv) {
       parts.push(`${colors.dim}${env.venv}${colors.reset}`);
     }
     return parts.join(' │ ');
   } else {
-    // Compact: claude-na:main (.venv)
+    // Compact: claude-na:main +1 !2 ?3 (.venv)
     let loc = `${colors.cyan}${env.directory}${colors.reset}`;
-    if (env.gitBranch) {
-      loc += `:${colors.magenta}${env.gitBranch}${colors.reset}`;
+    if (gitStatus) {
+      loc += `:${gitStatus}`;
     }
     if (env.venv) {
       loc += ` ${colors.dim}(${env.venv})${colors.reset}`;
@@ -305,7 +346,14 @@ export function renderStatuslineLegacy(
     todoistTask,
     context: {},
     env: {
-      gitBranch: null,
+      git: {
+        branch: null,
+        staged: 0,
+        modified: 0,
+        untracked: 0,
+        ahead: 0,
+        behind: 0,
+      },
       venv: null,
       directory: '',
       fullPath: '',

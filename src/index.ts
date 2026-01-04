@@ -8,5 +8,5 @@ export { loadConfig, getDefaultConfig, validateConfig } from './config.js';
 export { parseFile, addTaskToFile, completeTaskInFile, scanForNextAction, findOrCreateTodoPath } from './local/index.js';
 export { TodoistClient, filterTasks, sortTasks, isTaskActionable, getTaskDeferDate } from './todoist/index.js';
 export { renderStatusline, renderStatuslineLegacy } from './renderer.js';
-export { getEnvironmentInfo, getGitBranch, getVenv } from './env.js';
+export { getEnvironmentInfo, getGitBranch, getGitStatus, getVenv } from './env.js';
 export * from './types.js';

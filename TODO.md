@@ -1,2 +1,3 @@
+- [x] Expand git branch info ie ```[main !1 ?1]```
 - [ ] Expand file types - include README.md, include all files, etc.
 - [ ] Configurable to make 2 lines vs. 1

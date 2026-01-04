@@ -174,9 +174,19 @@ export interface StatuslineContext {
   };
 }
 
+// Git status counts
+export interface GitStatus {
+  branch: string | null;
+  staged: number;      // files staged for commit
+  modified: number;    // modified but not staged
+  untracked: number;   // untracked files
+  ahead: number;       // commits ahead of remote
+  behind: number;      // commits behind remote
+}
+
 // Environment info gathered locally
 export interface EnvironmentInfo {
-  gitBranch: string | null;
+  git: GitStatus;
   venv: string | null;
   directory: string; // leaf directory name
   fullPath: string;  // full path for verbose mode

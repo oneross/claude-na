@@ -132,10 +132,14 @@ export interface DisplayIcons {
 }
 
 export interface DisplayConfig {
-  format: 'compact' | 'detailed';
+  mode: 'compact' | 'verbose';
   maxTaskLength: number;
   showRemainingCount: boolean;
   showSource: boolean;
+  showTime: boolean;
+  showContext: boolean;
+  showDuration: boolean;
+  showLocation: boolean;
   icons: DisplayIcons;
   separator: string;
   priority: 'local' | 'todoist';
@@ -165,10 +169,17 @@ export interface StatuslineContext {
     costUSD: number;
   };
   contextWindow?: {
-    inputTokens: number;
-    outputTokens: number;
-    cacheTokens: number;
+    used: number;
+    max: number;
   };
+}
+
+// Environment info gathered locally
+export interface EnvironmentInfo {
+  gitBranch: string | null;
+  venv: string | null;
+  directory: string; // leaf directory name
+  fullPath: string;  // full path for verbose mode
 }
 
 // Completion action

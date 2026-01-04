@@ -1,4 +1,23 @@
-import type { LocalScanResult, TodoistTask, DisplayConfig } from './types.js';
+import type { LocalScanResult, TodoistTask, DisplayConfig, StatuslineContext, EnvironmentInfo } from './types.js';
+
+// ANSI color codes
+const colors = {
+  reset: '\x1b[0m',
+  dim: '\x1b[2m',
+  bold: '\x1b[1m',
+  // Foreground
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+  white: '\x1b[37m',
+  gray: '\x1b[90m',
+  // Bright
+  brightRed: '\x1b[91m',
+  brightYellow: '\x1b[93m',
+};
 
 /**
  * Truncate text to maxLength, adding ellipsis if needed.
@@ -6,6 +25,69 @@ import type { LocalScanResult, TodoistTask, DisplayConfig } from './types.js';
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength - 1) + '…';
+}
+
+/**
+ * Format system time as HH:MM.
+ */
+function formatTime(): string {
+  const now = new Date();
+  return now.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+}
+
+/**
+ * Format session duration from start time.
+ */
+function formatDuration(startTime: string | undefined): string {
+  if (!startTime) return '--';
+
+  const start = new Date(startTime);
+  const now = new Date();
+  const diffMs = now.getTime() - start.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+
+  if (diffMins < 60) {
+    return `${diffMins}m`;
+  }
+
+  const hours = Math.floor(diffMins / 60);
+  const mins = diffMins % 60;
+  return mins > 0 ? `${hours}h${mins}m` : `${hours}h`;
+}
+
+/**
+ * Render context usage bar with color coding.
+ * Returns: ██████░░░░ 58%
+ */
+function renderContextBar(context: StatuslineContext['contextWindow']): string {
+  if (!context || !context.max) {
+    return `${colors.dim}──────────${colors.reset}`;
+  }
+
+  const percent = Math.round((context.used / context.max) * 100);
+  const filledCount = Math.round(percent / 10);
+  const emptyCount = 10 - filledCount;
+
+  // Color based on usage
+  let barColor: string;
+  if (percent <= 50) {
+    barColor = colors.green;
+  } else if (percent <= 75) {
+    barColor = colors.yellow;
+  } else if (percent <= 90) {
+    barColor = colors.brightYellow;
+  } else {
+    barColor = colors.red;
+  }
+
+  const filled = '█'.repeat(filledCount);
+  const empty = '░'.repeat(emptyCount);
+
+  return `${barColor}${filled}${colors.dim}${empty}${colors.reset} ${percent}%`;
 }
 
 /**
@@ -21,9 +103,8 @@ function formatDue(due: TodoistTask['due']): string {
   const dueDate = new Date(due.date);
 
   if (dueDate < today) {
-    // Overdue
     const days = Math.floor((today.getTime() - dueDate.getTime()) / (24 * 60 * 60 * 1000));
-    return days === 1 ? 'yesterday' : `${days}d ago`;
+    return `${colors.red}${days === 1 ? 'yesterday' : `${days}d ago`}${colors.reset}`;
   }
 
   if (dueDate.getTime() === today.getTime()) {
@@ -38,7 +119,6 @@ function formatDue(due: TodoistTask['due']): string {
     return 'tomorrow';
   }
 
-  // Future date
   const days = Math.floor((dueDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
   if (days < 7) {
     return dueDate.toLocaleDateString('en-US', { weekday: 'short' });
@@ -48,63 +128,195 @@ function formatDue(due: TodoistTask['due']): string {
 }
 
 /**
- * Render the statusline output.
+ * Render location string (directory + branch + venv).
  */
-export function renderStatusline(
+function renderLocation(env: EnvironmentInfo, verbose: boolean): string {
+  if (verbose) {
+    // Verbose: ~/projects/claude-na │ main │ .venv
+    const parts: string[] = [];
+    parts.push(`${colors.cyan}${env.fullPath}${colors.reset}`);
+    if (env.gitBranch) {
+      parts.push(`${colors.magenta}${env.gitBranch}${colors.reset}`);
+    }
+    if (env.venv) {
+      parts.push(`${colors.dim}${env.venv}${colors.reset}`);
+    }
+    return parts.join(' │ ');
+  } else {
+    // Compact: claude-na:main (.venv)
+    let loc = `${colors.cyan}${env.directory}${colors.reset}`;
+    if (env.gitBranch) {
+      loc += `:${colors.magenta}${env.gitBranch}${colors.reset}`;
+    }
+    if (env.venv) {
+      loc += ` ${colors.dim}(${env.venv})${colors.reset}`;
+    }
+    return loc;
+  }
+}
+
+/**
+ * Render local task.
+ */
+function renderLocalTask(
+  result: LocalScanResult | null,
+  config: DisplayConfig,
+  verbose: boolean
+): string | null {
+  if (!result?.task) return null;
+
+  let text = truncate(result.task, config.maxTaskLength);
+
+  if (config.showRemainingCount && result.remaining > 0) {
+    text += ` ${colors.dim}+${result.remaining}${colors.reset}`;
+  }
+
+  if (verbose && config.showSource && result.source) {
+    text += ` ${colors.dim}(${result.source}:${result.line})${colors.reset}`;
+  }
+
+  return `${config.icons.local} ${text}`;
+}
+
+/**
+ * Render Todoist task.
+ */
+function renderTodoistTask(
+  task: TodoistTask | null,
+  config: DisplayConfig,
+  verbose: boolean
+): string | null {
+  if (!task) return null;
+
+  let text = truncate(task.content, config.maxTaskLength);
+
+  if (verbose) {
+    const meta: string[] = [];
+    if (task.priority > 1) {
+      const displayPriority = 5 - task.priority;
+      const pColor = displayPriority === 1 ? colors.red : colors.yellow;
+      meta.push(`${pColor}p${displayPriority}${colors.reset}`);
+    }
+    if (task.due) {
+      meta.push(formatDue(task.due));
+    }
+    if (meta.length > 0) {
+      text += ` ${colors.dim}[${meta.join('·')}]${colors.reset}`;
+    }
+  }
+
+  // In compact mode, dim the Todoist task to prioritize local
+  const prefix = verbose ? config.icons.todoist : `${colors.dim}${config.icons.todoist}`;
+  const suffix = verbose ? '' : colors.reset;
+
+  return `${prefix} ${text}${suffix}`;
+}
+
+export interface RenderOptions {
+  localResult: LocalScanResult | null;
+  todoistTask: TodoistTask | null;
+  context: StatuslineContext;
+  env: EnvironmentInfo;
+  config: DisplayConfig;
+}
+
+/**
+ * Render the complete statusline.
+ */
+export function renderStatusline(options: RenderOptions): string {
+  const { localResult, todoistTask, context, env, config } = options;
+  const verbose = config.mode === 'verbose';
+  const sep = ` ${colors.dim}│${colors.reset} `;
+
+  // Build header parts: time | context | duration | location
+  const headerParts: string[] = [];
+
+  if (config.showTime) {
+    headerParts.push(`${colors.gray}${formatTime()}${colors.reset}`);
+  }
+
+  if (config.showContext) {
+    headerParts.push(renderContextBar(context.contextWindow));
+  }
+
+  if (config.showDuration) {
+    headerParts.push(formatDuration(context.session?.startTime));
+  }
+
+  if (config.showLocation) {
+    headerParts.push(renderLocation(env, verbose));
+  }
+
+  // Build task parts
+  const localStr = renderLocalTask(localResult, config, verbose);
+  const todoistStr = renderTodoistTask(todoistTask, config, verbose);
+
+  if (verbose) {
+    // Verbose: 2 lines
+    // Line 1: time | context | duration | location
+    // Line 2: tasks
+    const line1 = headerParts.join(sep);
+
+    const taskParts: string[] = [];
+    if (config.priority === 'local') {
+      if (localStr) taskParts.push(localStr);
+      if (todoistStr) taskParts.push(todoistStr);
+    } else {
+      if (todoistStr) taskParts.push(todoistStr);
+      if (localStr) taskParts.push(localStr);
+    }
+
+    const line2 = taskParts.length > 0
+      ? taskParts.join(sep)
+      : `${colors.dim}✓ No pending actions${colors.reset}`;
+
+    return `${line1}\n${line2}`;
+  } else {
+    // Compact: 1 line
+    // time | context | duration | location | task
+    const allParts = [...headerParts];
+
+    // In compact mode, prefer local task, show todoist only if no local
+    if (localStr) {
+      allParts.push(localStr);
+      // Optionally append dimmed todoist
+      if (todoistStr) {
+        allParts.push(todoistStr);
+      }
+    } else if (todoistStr) {
+      allParts.push(todoistStr);
+    } else {
+      allParts.push(`${colors.dim}✓${colors.reset}`);
+    }
+
+    return allParts.join(sep);
+  }
+}
+
+// Legacy export for backwards compatibility
+export function renderStatuslineLegacy(
   localResult: LocalScanResult | null,
   todoistTask: TodoistTask | null,
   config: DisplayConfig
 ): string {
-  const parts: string[] = [];
-
-  // Local task
-  if (localResult?.task) {
-    let text = truncate(localResult.task, config.maxTaskLength);
-
-    if (config.showRemainingCount && localResult.remaining > 0) {
-      text += ` +${localResult.remaining}`;
-    }
-
-    if (config.showSource && localResult.source) {
-      // Shorten source path for display
-      const shortSource = localResult.source.replace(/^\.\.\//, '↑');
-      text += ` \x1b[2m[${shortSource}]\x1b[0m`;
-    }
-
-    parts.push(`${config.icons.local} ${text}`);
-  }
-
-  // Todoist task
-  if (todoistTask) {
-    let text = truncate(todoistTask.content, config.maxTaskLength);
-    const meta: string[] = [];
-
-    // Priority (4 = p1, 3 = p2, 2 = p3, 1 = p4 in API)
-    if (todoistTask.priority > 1) {
-      const displayPriority = 5 - todoistTask.priority;
-      meta.push(`p${displayPriority}`);
-    }
-
-    // Due date
-    if (todoistTask.due) {
-      meta.push(formatDue(todoistTask.due));
-    }
-
-    if (meta.length > 0) {
-      text += ` \x1b[2m[${meta.join('·')}]\x1b[0m`;
-    }
-
-    parts.push(`${config.icons.todoist} ${text}`);
-  }
-
-  if (parts.length === 0) {
-    return '\x1b[2m✓ No pending actions\x1b[0m';
-  }
-
-  // Reorder based on priority setting
-  if (config.priority === 'todoist' && parts.length === 2) {
-    parts.reverse();
-  }
-
-  return parts.join(config.separator);
+  // Minimal render without context/env for legacy callers
+  const options: RenderOptions = {
+    localResult,
+    todoistTask,
+    context: {},
+    env: {
+      gitBranch: null,
+      venv: null,
+      directory: '',
+      fullPath: '',
+    },
+    config: {
+      ...config,
+      showTime: false,
+      showContext: false,
+      showDuration: false,
+      showLocation: false,
+    },
+  };
+  return renderStatusline(options);
 }

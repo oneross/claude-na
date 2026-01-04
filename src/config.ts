@@ -69,10 +69,14 @@ const DEFAULT_CONFIG: Config = {
     },
   },
   display: {
-    format: 'compact',
+    mode: 'compact',
     maxTaskLength: 50,
     showRemainingCount: true,
     showSource: true,
+    showTime: true,
+    showContext: true,
+    showDuration: true,
+    showLocation: true,
     icons: {
       local: '📍',
       todoist: '📋',
@@ -92,34 +96,29 @@ function getConfigPaths(): string[] {
   ];
 }
 
-function deepMerge(target: Config, source: Partial<Config>): Config {
-  const result = { ...target };
-
-  for (const key of Object.keys(source) as Array<keyof Config>) {
-    const sourceValue = source[key];
-    const targetValue = target[key];
-
-    if (
-      sourceValue !== undefined &&
-      typeof sourceValue === 'object' &&
-      sourceValue !== null &&
-      !Array.isArray(sourceValue) &&
-      typeof targetValue === 'object' &&
-      targetValue !== null &&
-      !Array.isArray(targetValue)
-    ) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (result as any)[key] = deepMerge(
-        { ...DEFAULT_CONFIG, [key]: targetValue } as Config,
-        { [key]: sourceValue } as Partial<Config>
-      )[key];
-    } else if (sourceValue !== undefined) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (result as any)[key] = sourceValue;
-    }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function deepMergeObjects(target: any, source: any): any {
+  if (source === undefined || source === null) {
+    return target;
   }
 
+  if (typeof source !== 'object' || Array.isArray(source)) {
+    return source;
+  }
+
+  if (typeof target !== 'object' || target === null || Array.isArray(target)) {
+    return source;
+  }
+
+  const result = { ...target };
+  for (const key of Object.keys(source)) {
+    result[key] = deepMergeObjects(target[key], source[key]);
+  }
   return result;
+}
+
+function deepMerge(target: Config, source: Partial<Config>): Config {
+  return deepMergeObjects(target, source) as Config;
 }
 
 // Convert snake_case config keys to camelCase

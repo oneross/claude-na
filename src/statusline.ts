@@ -2,7 +2,7 @@
 /**
  * Statusline script for Claude Code integration.
  *
- * Receives JSON context via stdin, outputs formatted next action to stdout.
+ * Receives JSON context via stdin, outputs formatted statusline to stdout.
  * Called by Claude Code every ~300ms.
  */
 
@@ -10,6 +10,7 @@ import { loadConfig } from './config.js';
 import { scanForNextAction } from './local/index.js';
 import { TodoistClient } from './todoist/index.js';
 import { renderStatusline } from './renderer.js';
+import { getEnvironmentInfo } from './env.js';
 import type { StatuslineContext, LocalScanResult, TodoistTask } from './types.js';
 
 // Persistent state across invocations
@@ -38,6 +39,9 @@ async function main() {
   // Get working directory from context or fallback to cwd
   const cwd = context.cwd || process.cwd();
 
+  // Get environment info (git branch, venv, etc.)
+  const env = getEnvironmentInfo(cwd);
+
   // Scan local TODO.md
   const localResult: LocalScanResult = scanForNextAction(cwd, config.local);
 
@@ -62,7 +66,13 @@ async function main() {
   }
 
   // Render and output
-  const output = renderStatusline(localResult, todoistTask, config.display);
+  const output = renderStatusline({
+    localResult,
+    todoistTask,
+    context,
+    env,
+    config: config.display,
+  });
   process.stdout.write(output);
 }
 

@@ -17,6 +17,7 @@ import { loadConfig } from './config.js';
 import { scanForNextAction, findOrCreateTodoPath, addTaskToFile, completeTaskInFile, parseFile } from './local/index.js';
 import { TodoistClient } from './todoist/index.js';
 import { renderStatusline } from './renderer.js';
+import { getEnvironmentInfo } from './env.js';
 import * as fs from 'node:fs';
 
 const args = process.argv.slice(2);
@@ -47,7 +48,14 @@ async function main() {
         todoistTask = await client.getTopTask(true);
       }
 
-      const output = renderStatusline(localResult, todoistTask, config.display);
+      const env = getEnvironmentInfo(cwd);
+      const output = renderStatusline({
+        localResult,
+        todoistTask,
+        context: {},
+        env,
+        config: config.display,
+      });
       console.log(output);
       break;
     }
@@ -137,7 +145,14 @@ async function main() {
         todoistTask = await client.getTopTask(true); // Force refresh
       }
 
-      const output = renderStatusline(localResult, todoistTask, config.display);
+      const env = getEnvironmentInfo(cwd);
+      const output = renderStatusline({
+        localResult,
+        todoistTask,
+        context: {},
+        env,
+        config: config.display,
+      });
       console.log(output);
       break;
     }

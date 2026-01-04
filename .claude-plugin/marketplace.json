@@ -1,0 +1,13 @@
+{
+  "name": "oneross-claude-na",
+  "owner": {
+    "name": "Michael Ross"
+  },
+  "plugins": [
+    {
+      "name": "claude-na",
+      "source": "..",
+      "description": "Next Action HUD for Claude Code - shows your most important task from local TODO.md files and Todoist"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "hooks": [
+    {
+      "event": "SessionStart",
+      "command": "claude-na-statusline",
+      "description": "Initialize claude-na and display current next action on session start"
+    }
+  ]
+}

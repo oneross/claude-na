@@ -1,0 +1,46 @@
+{
+  "name": "claude-na",
+  "version": "0.1.0",
+  "description": "Next Action HUD for Claude Code",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "claude-na": "./dist/cli.js",
+    "claude-na-statusline": "./dist/statusline.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest",
+    "lint": "eslint src/",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "yaml": "^2.3.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0",
+    "eslint": "^8.55.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist/",
+    ".claude-plugin/",
+    "commands/",
+    "hooks/"
+  ],
+  "keywords": [
+    "claude-code",
+    "plugin",
+    "gtd",
+    "next-action",
+    "todoist",
+    "productivity"
+  ]
+}

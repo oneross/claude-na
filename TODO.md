@@ -1,0 +1,2 @@
+- [ ] Expand file types - include README.md, include all files, etc.
+- [ ] Configurable to make 2 lines vs. 1

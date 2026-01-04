@@ -1,6 +1,6 @@
 {
   "name": "claude-na",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Next Action HUD for Claude Code - shows your most important task from local TODO.md files and Todoist",
   "author": {
     "name": "Michael Ross"

@@ -1,66 +1,27 @@
-# /setup - Configure claude-na
+---
+description: Configure claude-na as your statusline
+allowed-tools: Bash, Read, Edit
+---
 
-Set up claude-na statusline integration with Claude Code.
-
-## Usage
-
-```
-/setup
-```
-
-## What This Does
-
-1. Builds the claude-na package
-2. Configures Claude Code's statusline to use claude-na
-3. Creates a default config file if one doesn't exist
-
-## Manual Setup
-
-If you prefer to set up manually:
-
-### 1. Install the package
+First, install dependencies and build:
 
 ```bash
-npm install -g claude-na
-# or
-npm link  # if developing locally
+cd "$(ls -td ~/.claude/plugins/cache/oneross-claude-na/claude-na/*/ 2>/dev/null | head -1)" && npm install --silent && npm run build --silent
 ```
 
-### 2. Configure Claude Code statusline
-
-Add to `~/.claude/settings.json`:
+Then add this statusLine configuration to `~/.claude/settings.json`:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "claude-na-statusline"
+    "command": "bash -c 'node \"$(ls -td ~/.claude/plugins/cache/oneross-claude-na/claude-na/*/ 2>/dev/null | head -1)dist/statusline.js\"'"
   }
 }
 ```
 
-### 3. (Optional) Configure Todoist
+Merge with existing settings. Do not overwrite other fields.
 
-Set your API token:
+The statusline appears immediately - no restart needed.
 
-```bash
-export TODOIST_API_TOKEN="your-token-here"
-```
-
-Create a config file at `~/.config/claude-na/config.yaml`:
-
-```yaml
-todoist:
-  enabled: true
-  filter:
-    exclude_labels: ["noapi", "someday"]
-    exclude_projects: ["Someday/Maybe"]
-```
-
-## Implementation
-
-```bash
-npm run build && npm link
-echo '{"statusLine":{"type":"command","command":"claude-na-statusline"}}' | claude settings merge -
-echo "✅ claude-na configured!"
-```
+After setup, tell the user they can configure display mode and Todoist in `~/.config/claude-na/config.yaml`.
